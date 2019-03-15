@@ -1,0 +1,7 @@
+[package]
+name = "master"
+version = "0.1.0"
+authors = ["zhengshuxin"]
+edition = "2018"
+
+[dependencies]
