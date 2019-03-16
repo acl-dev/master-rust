@@ -1,6 +1,9 @@
 use std::thread;
+use std::process;
 use std::net::{TcpListener, TcpStream};
 use std::os::unix::io::FromRawFd;
+use std::io::{Read, Error};
+use std::fs::File;
 
 fn get_listeners_by_addrs(addrs: &Vec<String>) -> Vec<TcpListener> {
     let mut listeners = Vec::new();
@@ -16,11 +19,10 @@ fn get_listeners_by_addrs(addrs: &Vec<String>) -> Vec<TcpListener> {
 fn get_listeners() -> Vec<TcpListener> {
     let mut listeners = Vec::new();
     for fd in 6..7 {
-        let listener;
         unsafe {
-            listener = TcpListener::from_raw_fd(fd);
+            let listener = TcpListener::from_raw_fd(fd);
+            listeners.push(listener);
         }
-        listeners.push(listener);
     }
 
     listeners
@@ -74,7 +76,38 @@ pub fn tcp_start_alone(addrs: &String, f: fn(TcpStream)) {
     start_listening(&mut listeners, f);
 }
 
+fn wait_master(f: &mut File) -> Result<(), Error> {
+    let mut buf = [0; 32];
+    let _r = f.read(&mut buf)?;
+    Ok(())
+}
+
+fn monitor_master() {
+    let statfd = 5;
+
+    let mut f;
+    unsafe {
+        f = File::from_raw_fd(statfd);
+    }
+
+    match wait_master(&mut f) {
+        Ok(_v) => {}
+        Err(_e) => { process::exit(1); }
+    }
+
+    println!("disconnect from master");
+    process::exit(0);
+}
+
 pub fn tcp_start_daemon(f: fn(TcpStream)) {
     let mut listeners = get_listeners();
+    if listeners.len() == 0 {
+        println!("no listeners available!");
+    }
+
+    let handle = thread::spawn(|| { monitor_master(); });
+
     start_listening(&mut listeners, f);
+
+    handle.join().unwrap();
 }
