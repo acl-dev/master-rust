@@ -1,5 +1,5 @@
 [package]
-name = "echo"
+name = "rust-echo"
 version = "0.1.0"
 authors = ["zhengshuxin"]
 edition = "2018"
