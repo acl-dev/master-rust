@@ -5,12 +5,16 @@ use std::os::unix::io::FromRawFd;
 use std::io::{Read, Error};
 use std::fs::File;
 
+extern crate getopts;
+use std::{env};
+use getopts::Options;
+
 fn get_listeners_by_addrs(addrs: &Vec<String>) -> Vec<TcpListener> {
     let mut listeners = Vec::new();
     for addr in addrs.iter() {
         let listener = TcpListener::bind(addr).expect("coudn't bind");
         listeners.push(listener);
-        println!("Listen {} ok!", addr);
+        info!("Listen {} ok!", addr);
     }
 
     listeners
@@ -21,6 +25,7 @@ fn get_listeners() -> Vec<TcpListener> {
     for fd in 6..7 {
         unsafe {
             let listener = TcpListener::from_raw_fd(fd);
+            listener.set_nonblocking(false).expect("Cannot set non-blocking");
             listeners.push(listener);
         }
     }
@@ -29,9 +34,10 @@ fn get_listeners() -> Vec<TcpListener> {
 }
 
 fn listen_by(listener: TcpListener, f: fn(TcpStream)) {
-    println!("Thread {:?} started! {:?}",
+    info!("Thread {:?} started! {:?}",
         thread::current().id(), listener.local_addr().unwrap());
     for stream in listener.incoming() {
+        info!("accept one {:?}", stream);
         let stream = stream.unwrap();
         thread::spawn(move || { f(stream); });
     }
@@ -59,7 +65,70 @@ fn start_listening(listeners: &mut Vec<TcpListener>, f: fn(TcpStream)) {
     }
 }
 
+fn print_usage(program: &str, opts: Options) {
+    let brief = format!("Usage: {} FILE [options]", program);
+    print!("{}", opts.usage(&brief));
+}
+
+static mut CALLED: bool = false;
+
+fn server_init() -> Option<String> {
+    unsafe {
+        if CALLED {
+            return None;
+        }
+        CALLED = true;
+    }
+
+	let args: Vec<String> = env::args().collect();
+    let program = args[0].clone();
+
+    let mut opts = Options::new();
+
+    opts.optopt("f", "", "set configure file name", "configure");
+    opts.optopt("l", "", "set log file name", "logfile");
+    opts.optopt("n", "", "service names in daemon mode", "service_names");
+    opts.optopt("t", "", "service type in daemon mode", "service_type");
+    opts.optopt("s", "", "listening addrs in alone mode", "addrs");
+    opts.optflag("h", "help", "print this help menu");
+
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m)  => { m }
+        Err(f) => { panic!(f.to_string()) }
+    };
+
+    if matches.opt_present("h") {
+        print_usage(&program, opts);
+        process::exit(0);
+    }
+
+    /*
+    let confile;
+    match matches.opt_str("f") {
+        Some(x) => { confile = x; }
+        None => { print_usage(&program, opts); return; }
+    }
+    */
+
+    let logfile;
+    match matches.opt_str("l") {
+        None    => {}
+        Some(x) => {
+            logfile = x;
+        	log4rs::init_file(logfile, Default::default()).unwrap();
+        }
+    }
+
+    info!("daemon started!");
+    return matches.opt_str("s");
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 pub fn tcp_start_alone(addrs: &String, f: fn(TcpStream)) {
+    server_init();
+
+    info!("starting server...");
     let addrs = addrs.replace(" ", ";");
     let addrs = addrs.replace(",", ";");
     let addrs = addrs.replace("\t", ";");
@@ -95,19 +164,28 @@ fn monitor_master() {
         Err(_e) => { process::exit(1); }
     }
 
-    println!("disconnect from master");
+    info!("disconnect from master");
     process::exit(0);
 }
 
 pub fn tcp_start_daemon(f: fn(TcpStream)) {
+    server_init();
+
     let mut listeners = get_listeners();
     if listeners.len() == 0 {
-        println!("no listeners available!");
+        info!("no listeners available!");
+        process::exit(0);
     }
 
     let handle = thread::spawn(|| { monitor_master(); });
-
     start_listening(&mut listeners, f);
-
     handle.join().unwrap();
+}
+
+pub fn tcp_start(f: fn(TcpStream)) {
+    let addrs = server_init();
+    match addrs {
+        Some(v) => { tcp_start_alone(&v, f); }
+        None    => { tcp_start_daemon(f); }
+    }
 }

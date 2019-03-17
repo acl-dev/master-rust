@@ -1,9 +1,14 @@
-use std::io::{Read, Write, Error};
-use std::net::TcpStream;
+#[macro_use]
+extern crate log;
+extern crate log4rs;
+
 extern crate master;
 
+use std::io::{Read, Write, Error};
+use std::net::TcpStream;
+
 fn handle_echo(mut stream: TcpStream) ->Result<(), Error> {
-    println!("incoming from {}", stream.peer_addr()?);
+    info!("incoming from {}", stream.peer_addr()?);
     let mut buf = [0; 512];
     loop {
         let bytes_read = stream.read(&mut buf)?;
@@ -23,11 +28,10 @@ fn handle_conn(stream: TcpStream) {
 }
 
 fn main() {
-    /*
-    let addrs = "127.0.0.1:8188, 127.0.0.1:8288; 127.0.0.1:8388;".to_string();
-    println!("start listen {}", addrs);
-    master::service::tcp_start_alone(&addrs, handle_conn);
-    */
+//    let addrs = "127.0.0.1:8188, 127.0.0.1:8288; 127.0.0.1:8388;".to_string();
+//    println!("start listen {}", addrs);
+//    master::service::tcp_start_alone(&addrs, handle_conn);
 
-    master::service::tcp_start_daemon(handle_conn);
+//    master::service::tcp_start_daemon(handle_conn);
+    master::service::tcp_start(handle_conn);
 }
