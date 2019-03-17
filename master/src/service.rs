@@ -9,6 +9,9 @@ extern crate getopts;
 use std::{env};
 use getopts::Options;
 
+extern crate threadpool;
+use threadpool::ThreadPool;
+
 fn get_listeners_by_addrs(addrs: &Vec<String>) -> Vec<TcpListener> {
     let mut listeners = Vec::new();
     for addr in addrs.iter() {
@@ -33,23 +36,33 @@ fn get_listeners() -> Vec<TcpListener> {
     listeners
 }
 
-fn listen_by(listener: TcpListener, f: fn(TcpStream)) {
+fn waiting_loop(pool: ThreadPool, listener: TcpListener, f: fn(TcpStream)) {
     info!("Thread {:?} started! {:?}",
         thread::current().id(), listener.local_addr().unwrap());
+
     for stream in listener.incoming() {
         info!("accept one {:?}", stream);
         let stream = stream.unwrap();
-        thread::spawn(move || { f(stream); });
+        //thread::spawn(move || { f(stream); });
+        pool.execute(move || { f(stream); });
     }
 }
 
 fn start_listening(listeners: &mut Vec<TcpListener>, f: fn(TcpStream)) {
+
     let mut handles = Vec::new();
+    let nthreads;
+    unsafe {
+        nthreads = NTHREADS;
+    }
+    let pool = ThreadPool::new(nthreads);
+
     loop {
         let listener = listeners.pop();
         match listener {
             Some(v) => {
-                let handle = thread::spawn(move || { listen_by(v, f); });
+                let p = pool.clone();
+                let handle = thread::spawn(move || { waiting_loop(p, v, f); });
                 handles.push(handle);
             }
             None => break,
@@ -71,6 +84,7 @@ fn print_usage(program: &str, opts: Options) {
 }
 
 static mut CALLED: bool = false;
+static mut NTHREADS: usize = 128;
 
 fn server_init() -> Option<String> {
     unsafe {
@@ -90,11 +104,12 @@ fn server_init() -> Option<String> {
     opts.optopt("n", "", "service names in daemon mode", "service_names");
     opts.optopt("t", "", "service type in daemon mode", "service_type");
     opts.optopt("s", "", "listening addrs in alone mode", "addrs");
+    opts.optopt("C", "", "max threads created", "nthreads");
     opts.optflag("h", "help", "print this help menu");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m)  => { m }
-        Err(f) => { panic!(f.to_string()) }
+        Err(e) => { panic!(e.to_string()); }
     };
 
     if matches.opt_present("h") {
@@ -116,6 +131,16 @@ fn server_init() -> Option<String> {
         Some(x) => {
             logfile = x;
         	log4rs::init_file(logfile, Default::default()).unwrap();
+        }
+    }
+
+    match matches.opt_str("C") {
+        None    => {}
+        Some(x) => {
+            let n: isize = x.parse().unwrap();
+            if n > 0 {
+                unsafe { NTHREADS = n as usize; }
+            }
         }
     }
 
