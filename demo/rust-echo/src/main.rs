@@ -30,8 +30,8 @@ fn handle_conn(stream: TcpStream) {
 fn main() {
 //    let addrs = "127.0.0.1:8188, 127.0.0.1:8288; 127.0.0.1:8388;".to_string();
 //    println!("start listen {}", addrs);
-//    master::service::tcp_start_alone(&addrs, handle_conn);
+//    master::tcp_service::start_alone(&addrs, handle_conn);
 
-//    master::service::tcp_start_daemon(handle_conn);
-    master::service::tcp_start(handle_conn);
+//    master::tcp_service::start_daemon(handle_conn);
+    master::tcp_service::start(handle_conn);
 }

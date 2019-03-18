@@ -150,7 +150,7 @@ fn server_init() -> Option<String> {
 
 //////////////////////////////////////////////////////////////////////////////
 
-pub fn tcp_start_alone(addrs: &String, f: fn(TcpStream)) {
+pub fn start_alone(addrs: &String, f: fn(TcpStream)) {
     server_init();
 
     info!("starting server...");
@@ -193,7 +193,7 @@ fn monitor_master() {
     process::exit(0);
 }
 
-pub fn tcp_start_daemon(f: fn(TcpStream)) {
+pub fn start_daemon(f: fn(TcpStream)) {
     server_init();
 
     let mut listeners = get_listeners();
@@ -207,10 +207,10 @@ pub fn tcp_start_daemon(f: fn(TcpStream)) {
     handle.join().unwrap();
 }
 
-pub fn tcp_start(f: fn(TcpStream)) {
+pub fn start(f: fn(TcpStream)) {
     let addrs = server_init();
     match addrs {
-        Some(v) => { tcp_start_alone(&v, f); }
-        None    => { tcp_start_daemon(f); }
+        Some(v) => { start_alone(&v, f); }
+        None    => { start_daemon(f); }
     }
 }

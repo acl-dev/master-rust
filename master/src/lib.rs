@@ -10,4 +10,4 @@ mod tests {
 extern crate log;
 extern crate log4rs;
 
-pub mod service;
+pub mod tcp_service;
