@@ -4,8 +4,18 @@ version = "0.1.0"
 authors = ["zhengshuxin"]
 edition = "2018"
 
+[lib]
+name = "master"
+#crate-type = ["staticlib"]
+#crate-type = ["dylib"]
+
 [dependencies]
 log = "0.4.0"
 log4rs = "0.8.1"
 getopts = "0.2.18"
 threadpool = "1.7.1"
+
+[[example]]
+name = "rust-echo"
+path = "../demo/rust-echo/src/main.rs"
+required-features = ["runtime"]
