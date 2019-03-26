@@ -1,13 +1,13 @@
-use std::thread;
-use std::process;
+use std::fs::File;
+use std::io::{Error, Read};
 use std::net::{TcpListener, TcpStream};
 use std::os::unix::io::FromRawFd;
-use std::io::{Read, Error};
-use std::fs::File;
+use std::process;
+use std::thread;
 
 extern crate getopts;
-use std::{env};
 use getopts::Options;
+use std::env;
 
 extern crate threadpool;
 use threadpool::ThreadPool;
@@ -28,7 +28,9 @@ fn get_listeners() -> Vec<TcpListener> {
     for fd in 6..7 {
         unsafe {
             let listener = TcpListener::from_raw_fd(fd);
-            listener.set_nonblocking(false).expect("Cannot set non-blocking");
+            listener
+                .set_nonblocking(false)
+                .expect("Cannot set non-blocking");
             listeners.push(listener);
         }
     }
@@ -37,19 +39,23 @@ fn get_listeners() -> Vec<TcpListener> {
 }
 
 fn waiting_loop(pool: ThreadPool, listener: TcpListener, f: fn(TcpStream)) {
-    info!("Thread {:?} started! {:?}",
-        thread::current().id(), listener.local_addr().unwrap());
+    info!(
+        "Thread {:?} started! {:?}",
+        thread::current().id(),
+        listener.local_addr().unwrap()
+    );
 
     for stream in listener.incoming() {
         info!("accept one {:?}", stream);
         let stream = stream.unwrap();
         //thread::spawn(move || { f(stream); });
-        pool.execute(move || { f(stream); });
+        pool.execute(move || {
+            f(stream);
+        });
     }
 }
 
 fn start_listening(listeners: &mut Vec<TcpListener>, f: fn(TcpStream)) {
-
     let mut handles = Vec::new();
     let nthreads;
     unsafe {
@@ -62,7 +68,9 @@ fn start_listening(listeners: &mut Vec<TcpListener>, f: fn(TcpStream)) {
         match listener {
             Some(v) => {
                 let p = pool.clone();
-                let handle = thread::spawn(move || { waiting_loop(p, v, f); });
+                let handle = thread::spawn(move || {
+                    waiting_loop(p, v, f);
+                });
                 handles.push(handle);
             }
             None => break,
@@ -73,7 +81,7 @@ fn start_listening(listeners: &mut Vec<TcpListener>, f: fn(TcpStream)) {
         let handle = handles.pop();
         match handle {
             Some(v) => v.join().unwrap(),
-            None =>break,
+            None => break,
         }
     }
 }
@@ -94,7 +102,7 @@ fn server_init() -> Option<String> {
         CALLED = true;
     }
 
-	let args: Vec<String> = env::args().collect();
+    let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
     let mut opts = Options::new();
@@ -108,8 +116,10 @@ fn server_init() -> Option<String> {
     opts.optflag("h", "help", "print this help menu");
 
     let matches = match opts.parse(&args[1..]) {
-        Ok(m)  => { m }
-        Err(e) => { panic!(e.to_string()); }
+        Ok(m) => m,
+        Err(e) => {
+            panic!(e.to_string());
+        }
     };
 
     if matches.opt_present("h") {
@@ -127,19 +137,21 @@ fn server_init() -> Option<String> {
 
     let logfile;
     match matches.opt_str("l") {
-        None    => {}
+        None => {}
         Some(x) => {
             logfile = x;
-        	log4rs::init_file(logfile, Default::default()).unwrap();
+            log4rs::init_file(logfile, Default::default()).unwrap();
         }
     }
 
     match matches.opt_str("C") {
-        None    => {}
+        None => {}
         Some(x) => {
             let n: isize = x.parse().unwrap();
             if n > 0 {
-                unsafe { NTHREADS = n as usize; }
+                unsafe {
+                    NTHREADS = n as usize;
+                }
             }
         }
     }
@@ -186,7 +198,9 @@ fn monitor_master() {
 
     match wait_master(&mut f) {
         Ok(_v) => {}
-        Err(_e) => { process::exit(1); }
+        Err(_e) => {
+            process::exit(1);
+        }
     }
 
     info!("disconnect from master");
@@ -202,7 +216,9 @@ pub fn start_daemon(f: fn(TcpStream)) {
         process::exit(0);
     }
 
-    let handle = thread::spawn(|| { monitor_master(); });
+    let handle = thread::spawn(|| {
+        monitor_master();
+    });
     start_listening(&mut listeners, f);
     handle.join().unwrap();
 }
@@ -210,7 +226,11 @@ pub fn start_daemon(f: fn(TcpStream)) {
 pub fn start(f: fn(TcpStream)) {
     let addrs = server_init();
     match addrs {
-        Some(v) => { start_alone(&v, f); }
-        None    => { start_daemon(f); }
+        Some(v) => {
+            start_alone(&v, f);
+        }
+        None => {
+            start_daemon(f);
+        }
     }
 }

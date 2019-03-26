@@ -4,10 +4,10 @@ extern crate log4rs;
 
 extern crate master;
 
-use std::io::{Read, Write, Error};
+use std::io::{Error, Read, Write};
 use std::net::TcpStream;
 
-fn handle_echo(mut stream: TcpStream) ->Result<(), Error> {
+fn handle_echo(mut stream: TcpStream) -> Result<(), Error> {
     info!("incoming from {}", stream.peer_addr()?);
     let mut buf = [0; 512];
     loop {
@@ -28,10 +28,10 @@ fn handle_conn(stream: TcpStream) {
 }
 
 fn main() {
-//    let addrs = "127.0.0.1:8188, 127.0.0.1:8288; 127.0.0.1:8388;".to_string();
-//    println!("start listen {}", addrs);
-//    master::tcp_service::start_alone(&addrs, handle_conn);
+    //    let addrs = "127.0.0.1:8188, 127.0.0.1:8288; 127.0.0.1:8388;".to_string();
+    //    println!("start listen {}", addrs);
+    //    master::tcp_service::start_alone(&addrs, handle_conn);
 
-//    master::tcp_service::start_daemon(handle_conn);
+    //    master::tcp_service::start_daemon(handle_conn);
     master::tcp_service::start(handle_conn);
 }
