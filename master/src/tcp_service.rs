@@ -118,7 +118,7 @@ fn server_init() -> Option<String> {
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
         Err(e) => {
-            panic!(e.to_string());
+            panic!("{}", e.to_string());
         }
     };
 
